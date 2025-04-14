@@ -1,6 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { logger } from '../utils/logger.js';
+import { sampleDocuments } from '../data/documents.js';
+import { documentContent } from '../data/content.js';
+import { intentTypes } from '../data/intent-types.js';
+import { promptTemplates } from '../templates/prompt-templates.js';
 
 /**
  * Registers specific prompts with the MCP server
@@ -14,24 +18,63 @@ export function registerPrompts(
   server.prompt(
     "document_qa",
     {
-      document_id: z.string().describe("The ID of the document to query"),
-      question: z.string().describe("The question to ask about the document")
+      question: z.string().describe("The user's question about the documents"),
+      relevantDocIds: z.string().describe("Comma-separated list of relevant document IDs (from the archive)"),
+      intentType: z.enum([...intentTypes] as [string, ...string[]]).describe("The intent of the question (select from dropdown)")
     },
-    async ({ document_id, question }) => {
-      // TODO: Implement semantic search to find relevant passages
-      const relevantPassages = "This would contain relevant document passages...";
-
+    async ({ question, relevantDocIds, intentType }) => {
+      // Validate intentType
+      if (!intentTypes.includes(intentType)) {
+        return {
+          messages: [
+            {
+              role: "user",
+              content: {
+                type: "text",
+                text: `Error: Invalid intent type. Please select one of: ${intentTypes.join(", ")}`
+              }
+            }
+          ]
+        };
+      }
+      // Parse and validate document IDs
+      const docIds = relevantDocIds.split(',').map(id => id.trim()).filter(Boolean);
+      const selectedDocs = sampleDocuments.filter(doc => docIds.includes(doc.id));
+      if (selectedDocs.length === 0) {
+        return {
+          messages: [
+            {
+              role: "user",
+              content: {
+                type: "text",
+                text: `Error: No valid documents selected. Please provide valid document IDs from the archive.`
+              }
+            }
+          ]
+        };
+      }
+      // Gather context from selected documents
+      const contextualInformation = selectedDocs.map(doc => {
+        const passages = documentContent[doc.id as keyof typeof documentContent] || [];
+        return {
+          documentId: doc.id,
+          title: doc.title,
+          author: doc.author,
+          publicationDate: doc.publicationDate,
+          relevantPassages: passages
+        };
+      });
+      // Build the prompt message using the template
+      const contextText = contextualInformation.map(docInfo =>
+        `Document: ${docInfo.title} (ID: ${docInfo.documentId})\nAuthor: ${docInfo.author}\nPublished: ${docInfo.publicationDate}\nPassages:\n- ${docInfo.relevantPassages.join("\n- ")}`
+      ).join("\n\n");
       return {
         messages: [
           {
             role: "user",
             content: {
               type: "text",
-              text: `Please answer the following question based on the provided document context:
-Question: ${question}
-Context from document ${document_id}:
-${relevantPassages}
-Answer the question based solely on the information in the context above.`
+              text: promptTemplates.documentQA(question, intentType, contextText)
             }
           }
         ]
