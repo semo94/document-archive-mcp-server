@@ -1,5 +1,5 @@
 {
-  "name": "mcp-server",
+  "name": "document-archive-mcp-server",
   "version": "1.0.0",
   "description": "Model Context Protocol server implementation",
   "main": "build/index.js",

@@ -3,7 +3,7 @@
  */
 
 // Basic server information
-export const SERVER_NAME = process.env.SERVER_NAME || "mcp-server";
+export const SERVER_NAME = process.env.SERVER_NAME || "document-archive-mcp-server";
 export const SERVER_VERSION = process.env.SERVER_VERSION || "1.0.0";
 
 // Server capabilities flags

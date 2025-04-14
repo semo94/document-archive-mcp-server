@@ -42,7 +42,7 @@ export const logger = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  defaultMeta: { service: 'mcp-server' },
+  defaultMeta: { service: 'document-archive-mcp-server' },
   transports: [
     // Console transport for development - redirected to stderr
     new winston.transports.Console({

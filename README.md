@@ -89,7 +89,7 @@ PORT=8080 npm start -- --transport=sse
 
 The server can be configured through environment variables:
 
-- `SERVER_NAME`: Name of the server (default: "mcp-server")
+- `SERVER_NAME`: Name of the server (default: "document-archive-mcp-server")
 - `SERVER_VERSION`: Server version (default: "1.0.0")
 - `ENABLE_RESOURCES`: Enable/disable resources (default: true)
 - `ENABLE_TOOLS`: Enable/disable tools (default: true)
