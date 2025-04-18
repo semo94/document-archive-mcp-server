@@ -28,6 +28,24 @@ export const LOG_FILE = process.env.LOG_FILE || "combined.log";
 export const ERROR_LOG_FILE = process.env.ERROR_LOG_FILE || "error.log";
 export const ENABLE_FILE_LOGGING = process.env.ENABLE_FILE_LOGGING === "true" || process.env.NODE_ENV !== "development";
 
+// Document processing configuration
+export const DOCUMENT_DIRECTORIES = process.env.DOCUMENT_DIRECTORIES
+  ? process.env.DOCUMENT_DIRECTORIES.split(',').map(dir => dir.trim())
+  : [];
+
+export const DOCUMENT_CHUNK_SIZE = parseInt(process.env.DOCUMENT_CHUNK_SIZE || "1000", 10);
+export const DOCUMENT_CHUNK_OVERLAP = parseInt(process.env.DOCUMENT_CHUNK_OVERLAP || "200", 10);
+export const DOCUMENT_CHUNK_SEPERATOR = ["\n\n", "\n", " ", ""];
+
+
+export const FILE_EXTENSIONS = process.env.FILE_EXTENSIONS || ".txt,.md,.pdf,.docx,.doc,.csv,.json";
+export const WATCH_EXISTING_FILES = process.env.WATCH_EXISTING_FILES === "true";
+
+
+// embedding configuration
+export const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'sentence-transformers/all-MiniLM-L6-v2';
+// LanceDB path
+export const LANCEDB_PATH = process.env.LANCEDB_PATH || './vectordb';
 
 
 /**
@@ -44,8 +62,7 @@ export function getServerConfig() {
       prompts: ENABLE_PROMPTS ? {} : undefined
     }
   };
-} 
-
+}
 
 /**
  * Logs all configuration values and environment variables
@@ -56,7 +73,7 @@ export function logConfigValues(logger: any) {
   const formatObject = (obj: Record<string, any>): string => {
     return JSON.stringify(obj, null, 2);
   };
-  
+
   // Server configuration values
   logger.info('=== SERVER CONFIGURATION ===');
   logger.info(formatObject({
@@ -71,6 +88,13 @@ export function logConfigValues(logger: any) {
     LOG_DIR,
     LOG_FILE,
     ERROR_LOG_FILE,
-    ENABLE_FILE_LOGGING
+    ENABLE_FILE_LOGGING,
+    DOCUMENT_DIRECTORIES,
+    WATCH_EXISTING_FILES,
+    DOCUMENT_CHUNK_SIZE,
+    DOCUMENT_CHUNK_OVERLAP,
+    FILE_EXTENSIONS,
+    EMBEDDING_MODEL,
+    LANCEDB_PATH,
   }));
 }

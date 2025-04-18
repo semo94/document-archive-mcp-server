@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { logger } from '../utils/logger.js';
+import { ReadinessManager } from '../utils/readiness.js';
 
 /**
  * Sets up an Express server with SSE transport for the MCP server
@@ -80,24 +81,48 @@ export async function setupSseServer(server: McpServer, port: number = 3000): Pr
       connections: Object.keys(transports).length
     });
   }
-  
-  // Register route handlers
+
+  // For diagnostics only - keeping a simple readiness endpoint
+  // but not using it for gatekeeping (as initialization is guaranteed)
+  function handleReadinessCheck(_req: Request, res: Response): void {
+    // Get the ReadinessManager only for reporting
+    const readinessManager = ReadinessManager.getInstance();
+    const status = readinessManager.getStatus();
+
+    // Should always be 'complete' at this point
+    res.status(200).send({
+      status: 'ready',
+      details: status,
+      connections: Object.keys(transports).length
+    });
+  }
+
+  // Register routes - no middleware needed as all initialization should be done
+  app.get('/health', handleHealthCheck);
+  app.get('/readiness', handleReadinessCheck);
   app.get('/sse', handleSse);
   app.post('/messages', handleMessages);
-  app.get('/health', handleHealthCheck);
   
   // Start the server
   return new Promise<void>((resolve, reject) => {
     try {
-      const server = app.listen(port, () => {
+      const httpServer = app.listen(port, () => {
         logger.info(`MCP server with SSE transport is running on port ${port}`);
         resolve();
       });
       
       // Handle server errors
-      server.on('error', (error) => {
+      httpServer.on('error', (error) => {
         logger.error('Express server error', { error });
         reject(error);
+      });
+
+      // Add shutdown handler
+      httpServer.on('close', () => {
+        logger.info('Express server closed');
+        Object.keys(transports).forEach(sessionId => {
+          delete transports[sessionId];
+        });
       });
     } catch (error) {
       logger.error('Failed to start Express server', { error });

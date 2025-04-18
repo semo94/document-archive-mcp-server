@@ -1,6 +1,8 @@
 .env
 .DS_Store
 build/
+vectordb/
+documents/
 mcp-docs/
 node_modules/
 logs/

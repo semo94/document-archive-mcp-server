@@ -1,25 +1,39 @@
 {
   "name": "document-archive-mcp-server",
   "version": "1.0.0",
-  "description": "Model Context Protocol server implementation",
+  "description": "Model Context Protocol server implementation with document processing & vector search",
   "main": "build/index.js",
   "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "node --env-file=.env build/index.js",
-    "dev": "node --env-file=.env --loader ts-node/esm src/index.ts"
+    "dev": "node --env-file=.env --loader ts-node/esm src/index.ts",
+    "start:sse": "node --env-file=.env build/index.js --transport=sse",
+    "dev:sse": "node --env-file=.env --loader ts-node/esm src/index.ts --transport=sse"
   },
   "keywords": [
     "mcp",
     "model-context-protocol",
-    "llm"
+    "llm",
+    "document-processing",
+    "vector-search"
   ],
   "author": "Salim Bakri",
   "license": "MIT",
   "dependencies": {
+    "@huggingface/transformers": "^3.4.2",
+    "@lancedb/lancedb": "^0.12.0",
+    "@langchain/community": "^0.3.40",
+    "@langchain/core": "^0.3.44",
     "@modelcontextprotocol/sdk": "^1.8.0",
+    "chokidar": "^4.0.3",
     "cors": "^2.8.5",
+    "d3-dsv": "^2.0.0",
     "express": "^5.1.0",
+    "langchain": "^0.3.21",
+    "lodash": "^4.17.21",
+    "mammoth": "^1.9.0",
+    "pdf-parse": "^1.1.1",
     "uuid": "^9.0.1",
     "winston": "^3.10.0",
     "zod": "^3.24.2"
@@ -27,9 +41,13 @@
   "devDependencies": {
     "@types/cors": "^2.8.15",
     "@types/express": "^5.0.1",
+    "@types/lodash": "^4.17.16",
     "@types/node": "^22.14.0",
     "@types/uuid": "^9.0.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }

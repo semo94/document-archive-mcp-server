@@ -4,7 +4,8 @@ import { McpServerInstance } from './server.js';
 import { setupStdioTransport } from './transport/stdio.js';
 import { setupSseServer } from './transport/sse.js';
 import { logger } from './utils/logger.js';
-import { TRANSPORT_TYPE, DEFAULT_PORT, logConfigValues } from './utils/config.js';
+import { TRANSPORT_TYPE, DEFAULT_PORT, DOCUMENT_DIRECTORIES, logConfigValues } from './utils/config.js';
+import { ReadinessManager } from './utils/readiness.js';
 
 /**
  * Main function to start the MCP server with the specified transport
@@ -17,12 +18,24 @@ async function main() {
   const args = process.argv.slice(2);
   const transportArg = args.find(arg => arg.startsWith('--transport='))?.split('=')[1];
   const transportType = transportArg || TRANSPORT_TYPE;
-  
-  // Get the MCP server instance
-  const serverInstance = McpServerInstance.getInstance();
-  const server = await serverInstance.initialize();
-  
+
   try {
+    // Initialize the ReadinessManager to ensure all services are ready before accepting requests
+    logger.info('Initializing server dependencies');
+    const readinessManager = ReadinessManager.getInstance();
+
+    // Start initializing dependencies - this returns a promise we can pass to the server
+    const dependenciesPromise = readinessManager.initialize(DOCUMENT_DIRECTORIES);
+
+    // Initialize the server, passing the dependencies promise
+    // This way the server will wait for dependencies before registering features
+    logger.info('Initializing MCP server instance');
+    const serverInstance = McpServerInstance.getInstance();
+    const server = await serverInstance.initialize(dependenciesPromise);
+
+    // By this point, all dependencies should be ready and server features are registered
+    logger.info('Server initialization complete, setting up transport');
+
     // Set up the appropriate transport
     if (transportType === 'stdio') {
       logger.info('Starting MCP server with stdio transport');

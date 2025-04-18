@@ -67,44 +67,19 @@ export class LanceDBService {
       const connection = this.connector.getConnection();
 
       // Check if documents table exists, create if it doesn't
-      const tableNames = await connection.tableNames();
-
-      if (tableNames.includes(DOCUMENTS_TABLE)) {
+      if (await this.connector.tableExists(DOCUMENTS_TABLE)) {
         logger.info(`Using existing table: ${DOCUMENTS_TABLE}`);
-        const table = await connection.openTable(DOCUMENTS_TABLE);
-        const allRows = await table.query().toArray();
-        logger.debug(`Table ${DOCUMENTS_TABLE} has ${allRows} rows`);
+        const table = await this.connector.getTable(DOCUMENTS_TABLE);
 
         // Create LanceDB instance with existing table
         this.vectorStore = new LanceDB(this.embeddingService, { table });
         this.tableInitialized = true;
-      } // In the initialize() method of lancedb-service.ts
-      else {
+      } else {
         logger.info(`Creating new table: ${DOCUMENTS_TABLE}`);
-
-        // Generate a sample embedding to determine dimensions
-        const sampleEmbedding = await this.embeddingService.embedQuery("sample");
-        const embeddingDim = sampleEmbedding.length;
+        const docId = 'sample_doc_id';
 
         // Create a sample document with the full schema
-        const sampleDoc = DocumentUtils.chunkToLangChainDoc({
-          chunkId: "sample_chunk_id",
-          documentId: "sample_doc_id",
-          chunkIndex: 0,
-          content: "This is a sample document for initialization",
-          filename: "sample.txt",
-          title: "Sample Document",
-          fileType: "txt",
-          filePath: "/sample/path.txt",
-          language: "en",
-          fileSize: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          fileHash: "",
-          pageNumber: 0,
-          startIndex: 0,
-          endIndex: 0
-        });
+        const sampleDoc = DocumentUtils.createSampleDocument(docId);
 
         // According to lancedb.d.ts, LanceDB.fromDocuments only accepts:
         // table, textKey, uri, tableName, and mode in the dbConfig
@@ -118,22 +93,18 @@ export class LanceDBService {
           }
         );
 
-        logger.info(`Table created successfully with embedding dimension: ${embeddingDim}`);
         this.tableInitialized = true;
 
         // Remove the sample document
         if (this.vectorStore && this.tableInitialized) {
           const table = await connection.openTable(DOCUMENTS_TABLE);
-          const count = await table.countRows("document_id = 'sample_doc_id'");
+          const count = await table.countRows(`document_id = '${docId}'`);
           logger.debug(`Sample document count: ${count}`);
-          const result = await table.delete("document_id = 'sample_doc_id'");
+          const result = await table.delete(`document_id = '${docId}'`);
           logger.debug('Removed initialization sample document', result);
         }
       }
       this.isReady = true;
-      const result = await this.similaritySearch('what\'s the name of the person in the resume', getRetrievalConfig('factual_retrieval'))
-      logger.info('Search result', { result });
-
       logger.info('LanceDBService initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize LanceDBService', { error: error instanceof Error ? error.message : error });

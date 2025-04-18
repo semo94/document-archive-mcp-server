@@ -80,23 +80,23 @@ export class DocumentUtils {
    */
   static chunkToLangChainDoc(chunk: DocumentChunk): Document {
     return new Document({
-      id: chunk.chunkId,
       pageContent: chunk.content,
       metadata: {
-      document_id: chunk.documentId,
-      chunk_index: chunk.chunkIndex,
-      filename: chunk.filename,
-      title: chunk.title,
-      file_type: chunk.fileType,
-      file_path: chunk.filePath,
-      language: chunk.language,
-      file_size: chunk.fileSize,
-      created_at: chunk.createdAt,
-      updated_at: chunk.updatedAt,
-      file_hash: chunk.fileHash,
-      page_number: chunk.pageNumber,
-      start_index: chunk.startIndex,
-      end_index: chunk.endIndex
+        document_id: chunk.documentId,
+        chunk_id: chunk.chunkId,
+        chunk_index: chunk.chunkIndex,
+        filename: chunk.filename,
+        title: chunk.title,
+        file_type: chunk.fileType,
+        file_path: chunk.filePath,
+        language: chunk.language,
+        file_size: chunk.fileSize,
+        created_at: chunk.createdAt,
+        updated_at: chunk.updatedAt,
+        file_hash: chunk.fileHash,
+        page_number: chunk.pageNumber,
+        start_index: chunk.startIndex,
+        end_index: chunk.endIndex
       }
     });
   }
@@ -106,9 +106,9 @@ export class DocumentUtils {
    */
   static langChainDocToChunk(doc: Document): DocumentChunk {
     return {
-      chunkId: doc.id || '',
       content: doc.pageContent,
       documentId: doc.metadata?.document_id || '',
+      chunkId: doc.metadata?.chunk_id || '',
       chunkIndex: doc.metadata?.chunk_index || 0,
       filename: doc.metadata?.filename || '',
       title: doc.metadata?.title || '',
@@ -123,5 +123,26 @@ export class DocumentUtils {
       startIndex: doc.metadata?.start_index || 0,
       endIndex: doc.metadata?.end_index || 0
     };
+  }
+
+  static createSampleDocument(docId: string): Document {
+    return DocumentUtils.chunkToLangChainDoc({
+      chunkId: `${docId}_01`,
+      documentId: docId,
+      chunkIndex: 0,
+      content: "This is a sample document for initialization",
+      filename: "sample.txt",
+      title: "Sample Document",
+      fileType: "txt",
+      filePath: "/sample/path.txt",
+      language: "en",
+      fileSize: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      fileHash: "",
+      pageNumber: 0,
+      startIndex: 0,
+      endIndex: 0
+    });
   }
 }
