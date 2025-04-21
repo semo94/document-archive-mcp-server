@@ -256,7 +256,7 @@ export class LanceDBService {
 
         return {
           chunk,
-          score :result.metadata?._distance
+          score: result.metadata?._distance
         };
       });
 
@@ -265,6 +265,74 @@ export class LanceDBService {
     } catch (error) {
       logger.error('Error performing similarity search', { error: error instanceof Error ? error.message : error, query });
       throw new Error(`Similarity search failed: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
+  public async getDocumentsMetadata() {
+    return this.fetchMetadata();
+  }
+
+  public async getDocumentMetadataByID(documentId: string) {
+    return this.fetchMetadata(documentId);
+  }
+
+  private async fetchMetadata(documentId?: string) {
+    if (!this.isReady || !this.vectorStore) {
+      throw new Error('LanceDBService not initialized. Call initialize() first.');
+    }
+
+    try {
+      logger.info(documentId ? `Fetching metadata for document ID: ${documentId}` : 'Fetching documents metadata');
+
+      const table = await this.connector.getTable(DOCUMENTS_TABLE);
+      const query = table.query()
+        .select([
+          "document_id",
+          "filename",
+          "title",
+          "file_type",
+          "file_path",
+          "language",
+          "file_size",
+          "created_at",
+          "updated_at"
+        ]);
+
+      if (documentId) {
+        query.where(`document_id = '${documentId}'`).limit(1);
+      }
+
+      const rows = await query.toArray();
+
+      if (documentId) {
+        return rows.length > 0 ? rows[0] : null;
+      }
+
+      // Deduplicate by document_id
+      const uniqueDocuments = new Map();
+
+      for (const row of rows) {
+        const docId = row.document_id;
+
+        if (!uniqueDocuments.has(docId)) {
+          uniqueDocuments.set(docId, {
+            documentId: docId,
+            filename: row.filename,
+            title: row.title,
+            fileType: row.file_type,
+            filePath: row.file_path,
+            language: row.language,
+            fileSize: row.file_size,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+          });
+        }
+      }
+
+      return Array.from(uniqueDocuments.values());
+    } catch (error) {
+      logger.error(documentId ? `Error fetching metadata for document ID: ${documentId}` : 'Error fetching documents metadata', { error: error instanceof Error ? error.message : error });
+      throw new Error(documentId ? `Failed to fetch metadata for document ID: ${documentId}: ${error instanceof Error ? error.message : error}` : `Failed to fetch documents metadata: ${error instanceof Error ? error.message : error}`);
     }
   }
 

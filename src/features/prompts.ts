@@ -1,9 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { logger } from '../utils/logger.js';
-import { sampleDocuments } from '../data/documents.js';
-import { documentContent } from '../data/content.js';
-import { intentTypes } from '../data/intent-types.js';
+import { getRetrievalConfig, intentTypes } from '../utils/document.js';
+import { LanceDBService } from '../database/lancedb-service.js';
 import { promptTemplates } from '../templates/prompt-templates.js';
 
 /**
@@ -37,10 +36,10 @@ export function registerPrompts(
           ]
         };
       }
+
       // Parse and validate document IDs
       const docIds = relevantDocIds.split(',').map(id => id.trim()).filter(Boolean);
-      const selectedDocs = sampleDocuments.filter(doc => docIds.includes(doc.id));
-      if (selectedDocs.length === 0) {
+      if (docIds.length === 0) {
         return {
           messages: [
             {
@@ -48,33 +47,66 @@ export function registerPrompts(
               content: {
                 type: "text",
                 text: `Error: No valid documents selected. Please provide valid document IDs from the archive.`
-              }
+              },
+              isError: true
             }
           ]
         };
       }
-      // Gather context from selected documents
-      const contextualInformation = selectedDocs.map(doc => {
-        const passages = documentContent[doc.id as keyof typeof documentContent] || [];
+
+      // Retrieve relevant context from the vector database
+      const dbService = LanceDBService.getInstance();
+      const searchResults = await dbService.similaritySearch(question, getRetrievalConfig(intentType), { documentIds: docIds });
+
+      if (!searchResults || searchResults.length === 0) {
         return {
-          documentId: doc.id,
-          title: doc.title,
-          author: doc.author,
-          publicationDate: doc.publicationDate,
-          relevantPassages: passages
+          messages: [
+            {
+              role: "user",
+              content: {
+                type: "text",
+                text: `No relevant context found for the provided documents.`
+              },
+              isError: true
+            }
+          ]
         };
-      });
-      // Build the prompt message using the template
-      const contextText = contextualInformation.map(docInfo =>
-        `Document: ${docInfo.title} (ID: ${docInfo.documentId})\nAuthor: ${docInfo.author}\nPublished: ${docInfo.publicationDate}\nPassages:\n- ${docInfo.relevantPassages.join("\n- ")}`
-      ).join("\n\n");
+      }
+
+      // Group chunks by document ID
+      const documentMap = new Map();
+
+      for (const doc of searchResults) {
+        const { documentId, title, filename, fileType, language, content } = doc.chunk;
+
+        if (!documentMap.has(documentId)) {
+          // Create a new document entry if it doesn't exist
+          documentMap.set(documentId, {
+            metadata: {
+              documentId,
+              title,
+              filename,
+              fileType,
+              language
+            },
+            context: []
+          });
+        }
+
+        // Add the chunk content to the document's context array
+        documentMap.get(documentId).context.push(content);
+      }
+
+      // Convert the map to an array for the final response
+      const contextualInformation = Array.from(documentMap.values());
+
       return {
         messages: [
           {
             role: "user",
             content: {
               type: "text",
-              text: promptTemplates.documentQA(question, intentType, contextText)
+              text: promptTemplates.documentQA(question, intentType, contextualInformation)
             }
           }
         ]
@@ -82,5 +114,5 @@ export function registerPrompts(
     }
   );
 
-  logger.info('prompts registered successfully');
+  logger.info('Prompts registered successfully');
 }

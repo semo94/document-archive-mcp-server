@@ -1,10 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { logger } from '../utils/logger.js';
-import { sampleDocuments } from '../data/documents.js';
-import { documentContent } from '../data/content.js';
-import { intentTypes } from '../data/intent-types.js';
 import { toolDescriptions, instructionTemplates } from '../templates/tool-instructions.js';
+import { getRetrievalConfig, intentTypes } from "../utils/document.js";
+import { LanceDBService } from '../database/lancedb-service.js';
 
 /**
  * Registers specific tools with the MCP server
@@ -26,13 +25,16 @@ export function registerTools(
     async ({ query }) => {
       logger.info('getDocumentsMetadata tool called', { query });
 
+      const dbService = LanceDBService.getInstance();
+      const documentsMetaData = await dbService.getDocumentsMetadata();
+
       try {
         return {
           content: [
             {
               type: "text",
               text: JSON.stringify({
-                documents: sampleDocuments,
+                documents: documentsMetaData,
                 instructions: instructionTemplates.documentsMetadataInstructions(query)
               })
             }
@@ -190,17 +192,24 @@ export function registerTools(
         // Parse document IDs
         const docIds = relevantDocIds.split(',').map(id => id.trim());
 
-        // Get metadata for selected documents
-        const selectedDocs = sampleDocuments.filter(doc => docIds.includes(doc.id));
+        // Prepare retrieval configuration and filter
+        const config = getRetrievalConfig(intentType);
+        const filter= {
+          documentIds: docIds
+        };
 
-        if (selectedDocs.length === 0) {
+        const dbService = LanceDBService.getInstance();
+        const searchResult = await dbService.similaritySearch(query, config, filter);
+        logger.info('Search result', { searchResult });
+
+        if (searchResult.length === 0) {
           return {
             content: [
               {
                 type: "text",
                 text: JSON.stringify({
-                  error: "No valid documents were selected",
-                  message: "Please provide valid document IDs"
+                  error: "No valid documents were found",
+                  message: "No relevant documents were found for the given query."
                 })
               }
             ],
@@ -208,20 +217,32 @@ export function registerTools(
           };
         }
 
-        // Construct response with selected document passages
-        const contextualInformation = [];
+        // Group chunks by document ID
+        const documentMap = new Map();
 
-        for (const doc of selectedDocs) {
-          const docContent = documentContent[doc.id as keyof typeof documentContent] || [];
+        for (const doc of searchResult) {
+          const { documentId, title, filename, fileType, language, content } = doc.chunk;
 
-          contextualInformation.push({
-            documentId: doc.id,
-            title: doc.title,
-            author: doc.author,
-            publicationDate: doc.publicationDate,
-            relevantPassages: docContent
-          });
+          if (!documentMap.has(documentId)) {
+            // Create a new document entry if it doesn't exist
+            documentMap.set(documentId, {
+              metadata: {
+                documentId,
+                title,
+                filename,
+                fileType,
+                language
+              },
+              context: []
+            });
+          }
+
+          // Add the chunk content to the document's context array
+          documentMap.get(documentId).context.push(content);
         }
+
+        // Convert the map to an array for the final response
+        const contextualInformation = Array.from(documentMap.values());
         return {
           content: [
             {

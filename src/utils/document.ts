@@ -53,6 +53,20 @@ export interface RetrievalConfig {
   minScore?: number;
 }
 
+/**
+ * Intent types for document queries
+ * These categorize different kinds of information-seeking behaviors
+ */
+export const intentTypes: string[] = [
+  "factual_retrieval",
+  "conceptual_explanation",
+  "comparative_analysis",
+  "historical_context",
+  "statistical_data",
+  "methodological_inquiry",
+  "application_examples"
+];
+
 // Map intents to retrieval configurations.
 // You can adjust these parameters based on your empirical tests.
 export const retrievalConfigs: Record<string, RetrievalConfig> = {
