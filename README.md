@@ -16,12 +16,14 @@ This server implementation provides:
 - Support for both stdio and SSE transport methods
 - Comprehensive logging system
 - Configuration via environment variables
+- Readiness management to ensure all services are initialized before accepting requests
+- Graceful shutdown handling for server termination
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 22+ and npm
 
 ### Installation
 
@@ -68,22 +70,38 @@ PORT=8080 npm start -- --transport=sse
 
 ### Tools
 
-- `cross_document_search`: Search across documents for relevant information
+- `getDocumentsMetadata`: Retrieves metadata of available documents
   - Parameters: 
-    - `query` (string): The search query
-    - `max_results` (number, default: 5): Maximum number of results to return
+    - `query` (string): The user's original query or question
+
+- `checkQueryRelevance`: Assesses relevant documents and returns instructions for intent analysis
+  - Parameters:
+    - `query` (string): The user's original query or question
+    - `relevantDocIds` (string): Comma-separated list of document IDs that appear relevant to the query
+
+- `analyzeIntent`: Takes intent classification and returns instructions for context retrieval
+  - Parameters:
+    - `query` (string): The user's original query or question
+    - `intentType` (string): The classified intent type of the query
+
+- `retrieveContext`: Retrieves relevant passages from selected documents
+  - Parameters:
+    - `query` (string): The user's original query or question
+    - `intentType` (string): The classified intent type of the query
+    - `relevantDocIds` (string): Comma-separated list of document IDs to retrieve context from
 
 ### Resources
 
-- `documents://list`: Get a list of available documents
-- `document://{id}`: Get metadata for a specific document
+- `documents://metadata`: Returns a list of all document metadata
+- `documents://metadata/{id}`: Returns metadata for a specific document by ID
 
 ### Prompts
 
 - `document_qa`: Q&A about document content
   - Parameters:
-    - `document_id` (string): The ID of the document to query
-    - `question` (string): The question to ask about the document
+    - `question` (string): The user's question about the documents
+    - `relevantDocIds` (string): Comma-separated list of relevant document IDs (from the archive)
+    - `intentType` (string): The intent of the question (select from dropdown)
 
 ## Configuration
 
@@ -101,6 +119,11 @@ The server can be configured through environment variables:
 - `LOG_FILE`: Main log file name (default: "combined.log")
 - `ERROR_LOG_FILE`: Error log file name (default: "error.log")
 - `ENABLE_FILE_LOGGING`: Enable file logging (default: true in production, false in development)
+- `DOCUMENT_DIRECTORIES`: Comma-separated list of directories to watch for documents
+- `DOCUMENT_CHUNK_SIZE`: Size of document chunks for processing (default: 1000)
+- `DOCUMENT_CHUNK_OVERLAP`: Overlap size for document chunks (default: 200)
+- `EMBEDDING_MODEL`: Embedding model to use (default: 'sentence-transformers/all-MiniLM-L6-v2')
+- `LANCEDB_PATH`: Path to LanceDB database (default: './vectordb')
 
 ## Development
 
@@ -118,4 +141,4 @@ npm run dev -- --transport=sse
 
 ## License
 
-ISC 
+MIT
