@@ -19,6 +19,14 @@ This server implementation provides:
 - Readiness management to ensure all services are initialized before accepting requests
 - Graceful shutdown handling for server termination
 
+## System Architecture
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/system-arch-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="docs/system-arch-light.png" />
+  <img alt="System Architecture" src="docs/system-arch-light.png">
+</picture>
+
 ## Getting Started
 
 ### Prerequisites
