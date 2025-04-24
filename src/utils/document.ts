@@ -1,10 +1,9 @@
 /**
- * Document metadata and chunk interfaces aligned with LanceDB storage
+ * Document utilities
  */
-import { Document } from '@langchain/core/documents';
 
 /**
- * Document Chunk
+ * Document Chunk interface
  */
 export interface DocumentChunk {
   chunkId: string;
@@ -44,13 +43,11 @@ export interface RetrievalConfig {
   // Number of nearest neighbors to retrieve
   k: number;
   // Which similarity metric to use
-  distanceMetric: "cosine" | "euclidean" | "dot";
+  distanceType: "cosine" | "euclidean" | "dot";
   // Optional: a factor to refine initial ANN results if using a two-stage process
   refineFactor: number;
   // Include metadata fields in the query result
   includeMetadata?: boolean;
-  // Minimum similarity threshold (0-1)
-  minScore?: number;
 }
 
 /**
@@ -68,95 +65,118 @@ export const intentTypes: string[] = [
 ];
 
 // Map intents to retrieval configurations.
-// You can adjust these parameters based on your empirical tests.
+// Optimized for cosine similarity with all-MiniLM-L6-v2
 export const retrievalConfigs: Record<string, RetrievalConfig> = {
-  factual_retrieval: { indexType: "exact", k: 10, distanceMetric: "cosine", refineFactor: 1 },
-  conceptual_explanation: { indexType: "exact", k: 8, distanceMetric: "cosine", refineFactor: 1 },
-  comparative_analysis: { indexType: "approximate", k: 15, distanceMetric: "cosine", refineFactor: 2 },
-  historical_context: { indexType: "approximate", k: 12, distanceMetric: "cosine", refineFactor: 2 },
-  statistical_data: { indexType: "exact", k: 8, distanceMetric: "cosine", refineFactor: 1 },
-  methodological_inquiry: { indexType: "approximate", k: 12, distanceMetric: "cosine", refineFactor: 2 },
-  application_examples: { indexType: "exact", k: 10, distanceMetric: "cosine", refineFactor: 1 },
+  factual_retrieval: {
+    indexType: "approximate",
+    k: 10,
+    distanceType: "cosine",
+    refineFactor: 2,
+  },
+  conceptual_explanation: {
+    indexType: "approximate",
+    k: 8,
+    distanceType: "cosine",
+    refineFactor: 2,
+  },
+  comparative_analysis: {
+    indexType: "approximate",
+    k: 15,
+    distanceType: "cosine",
+    refineFactor: 3,
+  },
+  historical_context: {
+    indexType: "approximate",
+    k: 12,
+    distanceType: "cosine",
+    refineFactor: 3,
+  },
+  statistical_data: {
+    indexType: "exact",
+    k: 8,
+    distanceType: "cosine",
+    refineFactor: 2,
+  },
+  methodological_inquiry: {
+    indexType: "approximate",
+    k: 12,
+    distanceType: "cosine",
+    refineFactor: 3,
+  },
+  application_examples: {
+    indexType: "approximate",
+    k: 10,
+    distanceType: "cosine",
+    refineFactor: 2,
+  },
 };
 
+
+/**
+ * Get retrieval configuration for a specific intent
+ * @param intent - Query intent type
+ * @returns Retrieval configuration
+ */
 export function getRetrievalConfig(intent: string): RetrievalConfig {
   // Default to factual_retrieval configuration if no match is found.
   return retrievalConfigs[intent] || retrievalConfigs["factual_retrieval"];
 }
 
-
 /**
- * Helper functions for document processing
+ * Utility class for document processing
  */
 export class DocumentUtils {
   /**
-   * Create a LangChain Document from our DocumentChunk
+   * Convert DocumentChunk to LanceDB record format
+   * @param chunk - Document chunk
+   * @param embedding - Vector embedding for the chunk
+   * @returns LanceDB record
    */
-  static chunkToLangChainDoc(chunk: DocumentChunk): Document {
-    return new Document({
-      pageContent: chunk.content,
-      metadata: {
-        document_id: chunk.documentId,
-        chunk_id: chunk.chunkId,
-        chunk_index: chunk.chunkIndex,
-        filename: chunk.filename,
-        title: chunk.title,
-        file_type: chunk.fileType,
-        file_path: chunk.filePath,
-        language: chunk.language,
-        file_size: chunk.fileSize,
-        created_at: chunk.createdAt,
-        updated_at: chunk.updatedAt,
-        file_hash: chunk.fileHash,
-        page_number: chunk.pageNumber,
-        start_index: chunk.startIndex,
-        end_index: chunk.endIndex
-      }
-    });
-  }
-
-  /**
-   * Create DocumentChunk from LangChain Document result
-   */
-  static langChainDocToChunk(doc: Document): DocumentChunk {
+  static chunkToLanceDBRecord(chunk: DocumentChunk, embedding: number[]): Record<string, any> {
     return {
-      content: doc.pageContent,
-      documentId: doc.metadata?.document_id || '',
-      chunkId: doc.metadata?.chunk_id || '',
-      chunkIndex: doc.metadata?.chunk_index || 0,
-      filename: doc.metadata?.filename || '',
-      title: doc.metadata?.title || '',
-      fileType: doc.metadata?.file_type || '',
-      filePath: doc.metadata?.file_path || '',
-      language: doc.metadata?.language || 'en',
-      fileSize: doc.metadata?.file_size || 0,
-      createdAt: doc.metadata?.created_at || '',
-      updatedAt: doc.metadata?.updated_at || '',
-      fileHash: doc.metadata?.file_hash || '',
-      pageNumber: doc.metadata?.page_number || 0,
-      startIndex: doc.metadata?.start_index || 0,
-      endIndex: doc.metadata?.end_index || 0
+      vector: embedding,
+      document_id: chunk.documentId,
+      chunk_id: chunk.chunkId,
+      chunk_index: chunk.chunkIndex,
+      content: chunk.content,
+      filename: chunk.filename,
+      title: chunk.title,
+      file_type: chunk.fileType,
+      file_path: chunk.filePath,
+      language: chunk.language,
+      file_size: chunk.fileSize,
+      created_at: chunk.createdAt,
+      updated_at: chunk.updatedAt,
+      file_hash: chunk.fileHash,
+      page_number: chunk.pageNumber,
+      start_index: chunk.startIndex,
+      end_index: chunk.endIndex
     };
   }
 
-  static createSampleDocument(docId: string): Document {
-    return DocumentUtils.chunkToLangChainDoc({
-      chunkId: `${docId}_01`,
-      documentId: docId,
-      chunkIndex: 0,
-      content: "This is a sample document for initialization",
-      filename: "sample.txt",
-      title: "Sample Document",
-      fileType: "txt",
-      filePath: "/sample/path.txt",
-      language: "en",
-      fileSize: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      fileHash: "",
-      pageNumber: 0,
-      startIndex: 0,
-      endIndex: 0
-    });
+  /**
+   * Convert LanceDB record to DocumentChunk
+   * @param record - LanceDB record
+   * @returns Document chunk
+   */
+  static lanceDBRecordToChunk(record: Record<string, any>): DocumentChunk {
+    return {
+      documentId: record.document_id,
+      chunkId: record.chunk_id,
+      chunkIndex: record.chunk_index,
+      content: record.content,
+      filename: record.filename,
+      title: record.title,
+      fileType: record.file_type,
+      filePath: record.file_path,
+      language: record.language,
+      fileSize: record.file_size,
+      createdAt: record.created_at,
+      updatedAt: record.updated_at,
+      fileHash: record.file_hash,
+      pageNumber: record.page_number,
+      startIndex: record.start_index,
+      endIndex: record.end_index
+    };
   }
 }

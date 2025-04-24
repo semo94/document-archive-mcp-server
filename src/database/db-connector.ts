@@ -1,5 +1,5 @@
 /**
- * LanceDB connection management and initialization
+ * LanceDB connection management with native LanceDB library
  */
 import { connect, Connection } from '@lancedb/lancedb';
 import { logger } from '../utils/logger.js';
@@ -52,13 +52,19 @@ export class LanceDBConnector {
       // Ensure DB directory exists
       await fs.mkdir(path.dirname(this.dbPath), { recursive: true });
 
-      // Create connection to LanceDB
-      this.connection = await connect(this.dbPath);
+      // Create connection to LanceDB with only supported options
+      // Only include readConsistencyInterval which is likely supported
+      this.connection = await connect(this.dbPath, {
+        readConsistencyInterval: 0
+      });
 
       logger.info('LanceDB connection established successfully');
       this.isReady = true;
     } catch (error) {
-      logger.error('Failed to initialize LanceDB connection', { error: error instanceof Error ? error.message : error });
+      logger.error('Failed to initialize LanceDB connection', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw new Error(`LanceDB initialization failed: ${error instanceof Error ? error.message : error}`);
     }
   }
@@ -95,20 +101,38 @@ export class LanceDBConnector {
     if (!this.isReady || !this.connection) {
       throw new Error('LanceDB connection not initialized');
     }
-    return await this.connection.openTable(tableName);
+
+    try {
+      return await this.connection.openTable(tableName);
+    } catch (error) {
+      logger.error(`Error opening table: ${tableName}`, {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
+    }
   }
 
   /**
    * Create a new table in the database
    * @param tableName - Name of the new table
-   * @param schema - Schema for the new table
+   * @param data - Initial data for the table (can be empty array)
+   * @param options - Table creation options, including schema
    * @returns LanceDB table object
    * @throws Error if connection is not initialized
    */
-  public async createEmptyTable(tableName: string, schema: any): Promise<any> {
+  public async createTable(tableName: string, data: any[] = [], options: any = {}): Promise<any> {
     if (!this.connection) throw new Error('Connection not initialized');
 
-    return this.connection.createTable(tableName, schema);
+    try {
+      return this.connection.createTable(tableName, data, options);
+    } catch (error) {
+      logger.error(`Error creating table: ${tableName}`, {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
+    }
   }
 
   /**

@@ -22,15 +22,14 @@
   "license": "MIT",
   "dependencies": {
     "@huggingface/transformers": "^3.4.2",
-    "@lancedb/lancedb": "^0.12.0",
-    "@langchain/community": "^0.3.40",
+    "@lancedb/lancedb": "^0.18.2",
+    "@langchain/community": "^0.3.41",
     "@langchain/core": "^0.3.44",
     "@modelcontextprotocol/sdk": "^1.8.0",
     "chokidar": "^4.0.3",
     "cors": "^2.8.5",
     "d3-dsv": "^2.0.0",
     "express": "^5.1.0",
-    "langchain": "^0.3.21",
     "lodash": "^4.17.21",
     "mammoth": "^1.9.0",
     "pdf-parse": "^1.1.1",
@@ -43,9 +42,14 @@
     "@types/express": "^5.0.1",
     "@types/lodash": "^4.17.16",
     "@types/node": "^22.14.0",
-    "@types/uuid": "^9.0.6",
+    "@types/uuid": "^9.0.8",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "@langchain/community": {
+      "@lancedb/lancedb": "0.18.2"
+    }
   },
   "engines": {
     "node": ">=22.0.0"

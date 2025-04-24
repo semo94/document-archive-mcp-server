@@ -1,5 +1,6 @@
 /**
- * Document processor for loading, chunking, and embedding documents using LangChain
+ * Document processor for loading, chunking, and embedding documents
+ *
  */
 import { logger } from '../utils/logger.js';
 import { EmbeddingService } from './embedding-service.js';
@@ -28,7 +29,7 @@ interface LoaderMapping {
 }
 
 /**
- * Service for processing documents using LangChain
+ * Service for processing documents using LangChain loaders and direct LanceDB storage
  */
 export class DocumentProcessor {
   private static instance: DocumentProcessor;
@@ -53,7 +54,7 @@ export class DocumentProcessor {
    */
   private constructor() {
     this.embeddingService = EmbeddingService.getInstance();
-    this.dbService = LanceDBService.getInstance(this.embeddingService.getEmbeddingModel());
+    this.dbService = LanceDBService.getInstance(this.embeddingService);
   }
 
   /**
@@ -93,7 +94,10 @@ export class DocumentProcessor {
       this.isReady = true;
       logger.info('DocumentProcessor initialized successfully');
     } catch (error) {
-      logger.error('Failed to initialize DocumentProcessor', { error });
+      logger.error('Failed to initialize DocumentProcessor', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw new Error(`DocumentProcessor initialization failed: ${error}`);
     }
   }
@@ -172,13 +176,17 @@ export class DocumentProcessor {
       logger.debug(`Chunking document`, { documentId });
       const chunks = await this.chunkDocument(docs, documentId, baseMetadata);
 
-      // Store in database
+      // Store chunks in the database
       await this.dbService.upsertChunks(chunks);
 
       logger.info(`Document processed successfully: ${chunks.length} chunks`, { documentId });
       return chunks;
     } catch (error: any) {
-      logger.error('Error processing document', { error: error?.message || error, filePath });
+      logger.error('Error processing document', {
+        error: error?.message || error,
+        filePath,
+        stack: error?.stack
+      });
       // Preserve error stack if available
       if (error instanceof Error) {
         throw error;
@@ -203,7 +211,11 @@ export class DocumentProcessor {
 
       return await this.dbService.deleteDocument(documentId);
     } catch (error) {
-      logger.error('Error deleting document', { error, filePath });
+      logger.error('Error deleting document', {
+        error: error instanceof Error ? error.message : error,
+        filePath,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw new Error(`Failed to delete document: ${error}`);
     }
   }
@@ -279,7 +291,10 @@ export class DocumentProcessor {
 
       return allChunks;
     } catch (error: any) {
-      logger.error('Error chunking document', { error: error?.message || error });
+      logger.error('Error chunking document', {
+        error: error?.message || error,
+        stack: error?.stack
+      });
       throw error;
     }
   }
